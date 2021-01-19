@@ -58,28 +58,20 @@
 #   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # 
 # 
-#  version: QAT1.7.L.4.10.0-00014
+#  version: QAT1.7.L.4.12.0-00011
 ############################################################################
 
 include $(PWD)/../../common.mk
 #Add the name for the executable, Library or Module output definitions
-OUTPUT_NAME=dc_stateless_sample
-ifeq ($(ICP_OS_LEVEL),user_space)
-#############################################################
-#
-# Build user space executible
-#
-############################################################
-USER_SOURCE_FILES += ../../common/cpa_sample_utils.c cpa_dc_stateless_sample.c
-USER_SOURCE_FILES += cpa_dc_sample_user.c
-else
-#############################################################
-#
-# Build kernel space module
-#
-############################################################
-obj-m := $(OUTPUT_NAME).o
-$(OUTPUT_NAME)-objs := ../../common/cpa_sample_utils.o \
-	cpa_dc_stateless_sample.o cpa_dc_sample_linux_kernel_module.o
-endif
+
+
+
+
+zram-y := zcomp.o zram_drv.o \
+        qat/qatCompress.o qat/qat.o
+
+obj-$(CONFIG_ZRAM)      +=      zram.o
+
+
+
 
