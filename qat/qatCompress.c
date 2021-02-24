@@ -25,8 +25,6 @@
 #include <linux/completion.h>
 #include <linux/atomic.h>
 #include "qat.h"
-#include "constants.h"
-
 
 void qat_dc_fini(void);
 int qat_dc_init(void);

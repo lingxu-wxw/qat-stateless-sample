@@ -20,7 +20,6 @@
  */
 
 #include "qat.h"
-#include "statusCodes.h"
 #include <linux/slab.h>
 
 CpaStatus

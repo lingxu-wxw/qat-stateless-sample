@@ -58,6 +58,8 @@ typedef enum {
 #define	QAT_MIN_BUF_SIZE	(4*1024)
 #define	QAT_MAX_BUF_SIZE	(128*1024)
 
+#define VDO_BLOCK_SIZE  4096
+
 /* inlined for performance */
 
 CpaStatus qat_mem_alloc_contig(void **pp_mem_addr, Cpa32U size_bytes);

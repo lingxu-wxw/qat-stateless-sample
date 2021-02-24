@@ -1,8 +1,8 @@
-cmd_/QAT/quickassist/lookaside/access_layer/src/sample_code/functional/dc/zram-qat/qat/qatCompress.o := gcc -Wp,-MD,/QAT/quickassist/lookaside/access_layer/src/sample_code/functional/dc/zram-qat/qat/.qatCompress.o.d  -nostdinc -isystem /usr/lib/gcc/x86_64-redhat-linux/4.8.5/include -I./arch/x86/include -I./arch/x86/include/generated  -I./include -I./arch/x86/include/uapi -I./arch/x86/include/generated/uapi -I./include/uapi -I./include/generated/uapi -include ./include/linux/kconfig.h -include ./include/linux/compiler_types.h -D__KERNEL__ -DCONFIG_CC_STACKPROTECTOR -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs -fno-strict-aliasing -fno-common -fshort-wchar -Werror-implicit-function-declaration -Wno-format-security -std=gnu89 -DCC_HAVE_ASM_GOTO -fno-PIE -mno-sse -mno-mmx -mno-sse2 -mno-3dnow -mno-avx -m64 -falign-jumps=1 -falign-loops=1 -mno-80387 -mno-fp-ret-in-387 -mpreferred-stack-boundary=3 -mtune=generic -mno-red-zone -mcmodel=kernel -funit-at-a-time -DCONFIG_AS_CFI=1 -DCONFIG_AS_CFI_SIGNAL_FRAME=1 -DCONFIG_AS_CFI_SECTIONS=1 -DCONFIG_AS_FXSAVEQ=1 -DCONFIG_AS_SSSE3=1 -DCONFIG_AS_CRC32=1 -DCONFIG_AS_AVX=1 -DCONFIG_AS_AVX2=1 -DCONFIG_AS_AVX512=1 -DCONFIG_AS_SHA1_NI=1 -DCONFIG_AS_SHA256_NI=1 -pipe -Wno-sign-compare -fno-asynchronous-unwind-tables -mindirect-branch=thunk-extern -mindirect-branch-register -DRETPOLINE -fno-delete-null-pointer-checks -O2 -Wno-maybe-uninitialized --param=allow-store-data-races=0 -Wframe-larger-than=2048 -fstack-protector-strong -Wno-unused-but-set-variable -fno-var-tracking-assignments -g -pg -mfentry -DCC_USING_FENTRY -fno-inline-functions-called-once -Wdeclaration-after-statement -Wno-pointer-sign -fno-strict-overflow -fno-merge-all-constants -fmerge-constants -fno-stack-check -fconserve-stack -Werror=implicit-int -Werror=strict-prototypes -DDO_CRYPTO -DSC_ENABLE_DYNAMIC_COMPRESSION -I/QAT/quickassist/include/ -I/QAT/quickassist/include/lac -I/QAT/quickassist/include/dc -I/QAT/quickassist/lookaside/access_layer/include -I/QAT/quickassist/lookaside/access_layer/src/sample_code/functional/include  -DMODULE  -DKBUILD_BASENAME='"qatCompress"' -DKBUILD_MODNAME='"zram"' -c -o /QAT/quickassist/lookaside/access_layer/src/sample_code/functional/dc/zram-qat/qat/.tmp_qatCompress.o /QAT/quickassist/lookaside/access_layer/src/sample_code/functional/dc/zram-qat/qat/qatCompress.c
+cmd_/QAT/quickassist/lookaside/access_layer/src/sample_code/functional/dc/qat-stateless-sample/qat/qatCompress.o := gcc -Wp,-MD,/QAT/quickassist/lookaside/access_layer/src/sample_code/functional/dc/qat-stateless-sample/qat/.qatCompress.o.d  -nostdinc -isystem /usr/local/gcc-8.2/lib/gcc/x86_64-pc-linux-gnu/8.2.0/include -I./arch/x86/include -I./arch/x86/include/generated  -I./include -I./arch/x86/include/uapi -I./arch/x86/include/generated/uapi -I./include/uapi -I./include/generated/uapi -include ./include/linux/kconfig.h -include ./include/linux/compiler_types.h -D__KERNEL__ -DCONFIG_CC_STACKPROTECTOR -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs -fno-strict-aliasing -fno-common -fshort-wchar -Werror-implicit-function-declaration -Wno-format-security -std=gnu89 -DCC_HAVE_ASM_GOTO -fno-PIE -mno-sse -mno-mmx -mno-sse2 -mno-3dnow -mno-avx -m64 -falign-jumps=1 -falign-loops=1 -mno-80387 -mno-fp-ret-in-387 -mpreferred-stack-boundary=3 -mskip-rax-setup -mtune=generic -mno-red-zone -mcmodel=kernel -funit-at-a-time -DCONFIG_AS_CFI=1 -DCONFIG_AS_CFI_SIGNAL_FRAME=1 -DCONFIG_AS_CFI_SECTIONS=1 -DCONFIG_AS_FXSAVEQ=1 -DCONFIG_AS_SSSE3=1 -DCONFIG_AS_CRC32=1 -DCONFIG_AS_AVX=1 -DCONFIG_AS_AVX2=1 -DCONFIG_AS_AVX512=1 -DCONFIG_AS_SHA1_NI=1 -DCONFIG_AS_SHA256_NI=1 -pipe -Wno-sign-compare -fno-asynchronous-unwind-tables -mindirect-branch=thunk-extern -mindirect-branch-register -DRETPOLINE -fno-delete-null-pointer-checks -Wno-frame-address -Wno-format-truncation -Wno-format-overflow -Wno-int-in-bool-context -O2 --param=allow-store-data-races=0 -Wframe-larger-than=2048 -fstack-protector-strong -Wno-unused-but-set-variable -Wno-unused-const-variable -fno-var-tracking-assignments -g -pg -mfentry -DCC_USING_FENTRY -fno-inline-functions-called-once -Wdeclaration-after-statement -Wno-pointer-sign -fno-strict-overflow -fno-merge-all-constants -fmerge-constants -fno-stack-check -fconserve-stack -Werror=implicit-int -Werror=strict-prototypes -Werror=date-time -Werror=incompatible-pointer-types -Werror=designated-init -fmacro-prefix-map=./= -Wno-packed-not-aligned -DDO_CRYPTO -DSC_ENABLE_DYNAMIC_COMPRESSION -I/QAT/quickassist/include/ -I/QAT/quickassist/include/lac -I/QAT/quickassist/include/dc -I/QAT/quickassist/lookaside/access_layer/include -I/QAT/quickassist/lookaside/access_layer/src/sample_code/functional/include  -DMODULE  -DKBUILD_BASENAME='"qatCompress"' -DKBUILD_MODNAME='"zram"' -c -o /QAT/quickassist/lookaside/access_layer/src/sample_code/functional/dc/qat-stateless-sample/qat/.tmp_qatCompress.o /QAT/quickassist/lookaside/access_layer/src/sample_code/functional/dc/qat-stateless-sample/qat/qatCompress.c
 
-source_/QAT/quickassist/lookaside/access_layer/src/sample_code/functional/dc/zram-qat/qat/qatCompress.o := /QAT/quickassist/lookaside/access_layer/src/sample_code/functional/dc/zram-qat/qat/qatCompress.c
+source_/QAT/quickassist/lookaside/access_layer/src/sample_code/functional/dc/qat-stateless-sample/qat/qatCompress.o := /QAT/quickassist/lookaside/access_layer/src/sample_code/functional/dc/qat-stateless-sample/qat/qatCompress.c
 
-deps_/QAT/quickassist/lookaside/access_layer/src/sample_code/functional/dc/zram-qat/qat/qatCompress.o := \
+deps_/QAT/quickassist/lookaside/access_layer/src/sample_code/functional/dc/qat-stateless-sample/qat/qatCompress.o := \
   include/linux/kconfig.h \
     $(wildcard include/config/cpu/big/endian.h) \
     $(wildcard include/config/booger.h) \
@@ -95,7 +95,7 @@ deps_/QAT/quickassist/lookaside/access_layer/src/sample_code/functional/dc/zram-
     $(wildcard include/config/arch/has/refcount.h) \
     $(wildcard include/config/panic/timeout.h) \
     $(wildcard include/config/ftrace/mcount/record.h) \
-  /usr/lib/gcc/x86_64-redhat-linux/4.8.5/include/stdarg.h \
+  /usr/local/gcc-8.2/lib/gcc/x86_64-pc-linux-gnu/8.2.0/include/stdarg.h \
   include/linux/linkage.h \
   include/linux/export.h \
     $(wildcard include/config/have/underscore/symbol/prefix.h) \
@@ -857,29 +857,13 @@ deps_/QAT/quickassist/lookaside/access_layer/src/sample_code/functional/dc/zram-
   arch/x86/include/asm/cacheflush.h \
   include/asm-generic/cacheflush.h \
   include/linux/hugetlb_inline.h \
-  /QAT/quickassist/lookaside/access_layer/src/sample_code/functional/dc/zram-qat/qat/qat.h \
+  /QAT/quickassist/lookaside/access_layer/src/sample_code/functional/dc/qat-stateless-sample/qat/qat.h \
   /QAT/quickassist/include/cpa.h \
   /QAT/quickassist/include/cpa_types.h \
   /QAT/quickassist/include/dc/cpa_dc.h \
   /QAT/quickassist/include/lac/cpa_cy_sym.h \
   /QAT/quickassist/include/lac/cpa_cy_common.h \
-  /QAT/quickassist/lookaside/access_layer/src/sample_code/functional/dc/zram-qat/qat/constants.h \
-  /QAT/quickassist/lookaside/access_layer/src/sample_code/functional/dc/zram-qat/qat/types.h \
-  /QAT/quickassist/lookaside/access_layer/src/sample_code/functional/dc/zram-qat/qat/blockMappingState.h \
-  /QAT/quickassist/lookaside/access_layer/src/sample_code/functional/dc/zram-qat/qat/common.h \
-  /QAT/quickassist/lookaside/access_layer/src/sample_code/functional/dc/zram-qat/qat/stringUtils.h \
-  /QAT/quickassist/lookaside/access_layer/src/sample_code/functional/dc/zram-qat/qat/compiler.h \
-  /QAT/quickassist/lookaside/access_layer/src/sample_code/functional/dc/zram-qat/qat/compilerDefs.h \
-  /QAT/quickassist/lookaside/access_layer/src/sample_code/functional/dc/zram-qat/qat/stringDefs.h \
-  /QAT/quickassist/lookaside/access_layer/src/sample_code/functional/dc/zram-qat/qat/typeDefs.h \
-  /usr/lib/gcc/x86_64-redhat-linux/4.8.5/include/stddef.h \
-  /QAT/quickassist/lookaside/access_layer/src/sample_code/functional/dc/zram-qat/qat/uds.h \
-  /QAT/quickassist/lookaside/access_layer/src/sample_code/functional/dc/zram-qat/qat/uds-platform.h \
-  /QAT/quickassist/lookaside/access_layer/src/sample_code/functional/dc/zram-qat/qat/uds-block.h \
-  /QAT/quickassist/lookaside/access_layer/src/sample_code/functional/dc/zram-qat/qat/statusCodes.h \
-  /QAT/quickassist/lookaside/access_layer/src/sample_code/functional/dc/zram-qat/qat/errors.h \
-  /QAT/quickassist/lookaside/access_layer/src/sample_code/functional/dc/zram-qat/qat/uds-error.h \
 
-/QAT/quickassist/lookaside/access_layer/src/sample_code/functional/dc/zram-qat/qat/qatCompress.o: $(deps_/QAT/quickassist/lookaside/access_layer/src/sample_code/functional/dc/zram-qat/qat/qatCompress.o)
+/QAT/quickassist/lookaside/access_layer/src/sample_code/functional/dc/qat-stateless-sample/qat/qatCompress.o: $(deps_/QAT/quickassist/lookaside/access_layer/src/sample_code/functional/dc/qat-stateless-sample/qat/qatCompress.o)
 
-$(deps_/QAT/quickassist/lookaside/access_layer/src/sample_code/functional/dc/zram-qat/qat/qatCompress.o):
+$(deps_/QAT/quickassist/lookaside/access_layer/src/sample_code/functional/dc/qat-stateless-sample/qat/qatCompress.o):
