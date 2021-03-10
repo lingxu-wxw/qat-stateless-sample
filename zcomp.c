@@ -146,7 +146,7 @@ int zcomp_compress(struct zcomp_strm *zstrm,
 	 */
 	*dst_len = PAGE_SIZE * 2;
 
-	return qat_compress(QAT_COMPRESS, src, PAGE_SIZE,
+	return qat_compress(QAT_COMPRESS, (char *)src, PAGE_SIZE,
     zstrm->buffer, dst_len);
 
 }
@@ -156,7 +156,7 @@ int zcomp_decompress(struct zcomp_strm *zstrm,
 {
 	unsigned int dst_len = PAGE_SIZE;
 
-	return qat_compress(QAT_DECOMPRESS, src, PAGE_SIZE,
+	return qat_compress(QAT_DECOMPRESS, (char *)src, PAGE_SIZE,
     dst, &dst_len);
 }
 

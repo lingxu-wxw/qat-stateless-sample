@@ -1205,7 +1205,7 @@ int kth_read_cpu_info(void *data)
  */
 int kth_bio_segment_rw(struct zram *zram, struct bio *bio, int offset, u32 index)
 {
-	int ret;
+	// int ret;
 	struct bio_vec bvec;
 	struct bvec_iter iter;
 	
@@ -1242,6 +1242,7 @@ int kth_bio_segment_rw(struct zram *zram, struct bio *bio, int offset, u32 index
 	
 out:
 	bio_io_error(bio);
+	return -1;
 }
 
 /* 
