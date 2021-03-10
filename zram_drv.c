@@ -33,6 +33,9 @@
 #include <linux/sysfs.h>
 #include <linux/cpuhotplug.h>
 
+#include <linux/kthread.h>
+#include <linux/delay.h>
+
 #include "zram_drv.h"
 
 static DEFINE_IDR(zram_index_idr);
@@ -1179,6 +1182,19 @@ static int zram_bvec_rw(struct zram *zram, struct bio_vec *bvec, u32 index,
 	return ret;
 }
 
+struct queue_info *qinfo;
+static char *sched_name = NULL;
+module_param(sched_name, charp, 0);
+
+int read_cpu_info(void *data)
+{
+	//do something with data
+	if(unlikely(data == NULL))
+		return -1;
+	else
+		return 0;
+} 
+
 static void __zram_make_request(struct zram *zram, struct bio *bio)
 {
 	int offset;
@@ -1200,6 +1216,25 @@ static void __zram_make_request(struct zram *zram, struct bio *bio)
 		break;
 	}
 
+	// TODO
+	int ret;
+	int cnt;
+	char* arg = "hello";
+	const int poll_interval = 1000;
+	struct queue_info *qi = (struct queue_info*)arg;
+
+	while(!kthread_should_stop())
+	{
+		msleep_interruptible(poll_interval);
+
+		if(read_cpu_info(qi->data)) {
+			ret = -1;
+			//do something
+		}
+
+		printk("xinwei@debug - gathering : %d\n", count++);
+	}
+
 	bio_for_each_segment(bvec, bio, iter) {
 		struct bio_vec bv = bvec;
 		unsigned int unwritten = bvec.bv_len;
@@ -1216,13 +1251,45 @@ static void __zram_make_request(struct zram *zram, struct bio *bio)
 
 			update_position(&index, &offset, &bv);
 		} while (unwritten);
-	}
+	} 
 
 	bio_endio(bio);
 	return;
 
 out:
 	bio_io_error(bio);
+}
+
+static int kthread_init(void)
+{
+	int ret;
+
+	qinfo = kzalloc(sizeof(struct queue_info), GFP_KERNEL);
+	if(qinfo == NULL) {
+		return -ENOMEM;
+	}
+	if(sched_name == NULL) {
+		sched_name = "kth_zram_bio";
+	}
+
+	qinfo->task_id = kthread_run(kth_schedd, qinfo, "%s-#%d", sched_name, 0);
+
+	if(IS_ERR(qinfo->task_id)) {
+		ret = PTR_ERR(qinfo->task_id);		
+		goto kthread_init_err;
+	}
+
+	return 0;
+
+kthread_init_err:
+	kfree(qinfo);
+	return ret;
+}
+
+static void kthread_exit(void)
+{
+	kthread_stop(qinfo->task_id);
+	kfree(qinfo);
 }
 
 /*
@@ -1766,6 +1833,10 @@ static void __exit zram_exit(void)
 	qat_dc_fini();
 	destroy_devices();
 }
+
+// TODO
+module_init(kthread_init);
+module_exit(kthread_exit);
 
 module_init(zram_init);
 module_exit(zram_exit);

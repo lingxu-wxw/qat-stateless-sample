@@ -19,6 +19,8 @@
 #include <linux/zsmalloc.h>
 #include <linux/crypto.h>
 
+#include <linux/kthread.h>
+
 #include "zcomp.h"
 
 #define SECTORS_PER_PAGE_SHIFT	(PAGE_SHIFT - SECTOR_SHIFT)
@@ -49,6 +51,11 @@ enum zram_pageflags {
 	ZRAM_WB,	/* page is stored on backing_device */
 
 	__NR_ZRAM_PAGEFLAGS,
+};
+
+struct queue_info {
+	struct task_struct	*task_id;
+	void	 *data;
 };
 
 /*-- Data structures */
