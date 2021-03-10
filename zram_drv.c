@@ -1189,32 +1189,34 @@ module_param(sched_name, charp, 0);
 int read_cpu_info(void *data)
 {
 	//do something with data
-	if(unlikely(data == NULL))
-		return -1;
-	else
-		return 0;
+	int ret;
+
+	ret = (data == NULL);
+
+	kthread_stop();
+	return ret;
 }
 
 int kth_schedd(void *arg) 
 {
 	int ret;
-        int cnt = 0;
-        const int poll_interval = 1000;
-        struct queue_info *qi = (struct queue_info*)arg;
+	int cnt = 0;
+  const int poll_interval = 1000;
+  struct queue_info *qi = (struct queue_info*)arg;
 
-        while(!kthread_should_stop())
-        {
-                msleep_interruptible(poll_interval);
+	while(!kthread_should_stop())
+  {
+		msleep_interruptible(poll_interval);
 
-                if(read_cpu_info(qi->data)) {
-                        ret = -1;
-                        // do something
-                }
+    if(read_cpu_info(qi->data)) {
+      ret = -1;
+      // do something
+    }
  
-                pr_err("xinwei@debug - gathering : %d\n", cnt++);
-        }
+    pr_err("xinwei@debug - gathering : %d\n", cnt++);
+  }
         
-        return 0;
+  return 0;
 }
 
 /* 
@@ -1222,28 +1224,28 @@ int kth_schedd(void *arg)
  */
 static int kthread_init(void)
 {
-        int ret;
+  int ret;
 
-        qinfo = kzalloc(sizeof(struct queue_info), GFP_KERNEL);
-        if(qinfo == NULL) {
-                return -ENOMEM;
-        }
-        if(sched_name == NULL) {
-                sched_name = "kth_zram_bio";
-        }
+  qinfo = kzalloc(sizeof(struct queue_info), GFP_KERNEL);
+  if(qinfo == NULL) {
+    return -ENOMEM;
+  }
+  if(sched_name == NULL) {
+    sched_name = "kth_zram_bio";
+  }
 
-        qinfo->task_id = kthread_run(kth_schedd, qinfo, "%s-#%d", sched_name, 0);
+  qinfo->task_id = kthread_run(kth_schedd, qinfo, "%s-#%d", sched_name, 0);
 
-        if(IS_ERR(qinfo->task_id)) {
-                ret = PTR_ERR(qinfo->task_id);
-                goto kthread_init_err;
-        }
+  if(IS_ERR(qinfo->task_id)) {
+    ret = PTR_ERR(qinfo->task_id);
+    goto kthread_init_err;
+  }
 
-        return 0;
+  return 0;
 
 kthread_init_err:
-        kfree(qinfo);
-        return ret;
+  kfree(qinfo);
+  return ret;
 }
 
 /*
@@ -1251,8 +1253,8 @@ kthread_init_err:
  */
 static void kthread_exit(void)
 {
-        kthread_stop(qinfo->task_id);
-        kfree(qinfo);
+  kthread_stop(qinfo->task_id);
+  kfree(qinfo);
 }
 
 static void __zram_make_request(struct zram *zram, struct bio *bio)
