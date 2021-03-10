@@ -1183,43 +1183,24 @@ static int zram_bvec_rw(struct zram *zram, struct bio_vec *bvec, u32 index,
 }
 
 
-struct queue_info *qinfo;
-static char *sched_name = NULL;
-module_param(sched_name, charp, 0);
-
-/* 
- * kth_read_cpu_info
- */
-int kth_read_cpu_info(void *data)
-{
-	// do something with data
-	if (unlikely(data == NULL)) {
-		return -1;
-	}	else {
-		return 0;
-	}
-}
-
 /* 
  * kth_bio_segment_rw
  */
-int kth_bio_segment_rw(struct zram *zram, struct bio *bio, int offset, u32 index)
+int kth_bio_segment_rw(void *args)
 {
-	// int ret;
-	struct bio_vec bvec;
-	struct bvec_iter iter;
-	
-	/*
-	#define __bio_for_each_segment(bvl, bio, iter, start)
-		for (iter = (start); 
-				(iter).bi_size && ((bvl = bio_iter_iovec((bio), (iter))), 1);
-				bio_advance_iter((bio), &(iter), (bvl).bv_len))
+	const int poll_interval = 1000;
 
-	#define bio_for_each_segment(bvl, bio, iter)
-		__bio_for_each_segment(bvl, bio, iter, (bio)->bi_iter)
-	*/
+	struct queue_info *qinfo = (struct queue_info*)args;
 
-	bio_for_each_segment(bvec, bio, iter) {
+	struct bio_vec bvec = qinfo->bvec;
+	struct zram *zram = qinfo->zram;
+	int offset = qinfo->offset;
+	u32 index = qinfo->index;					// typedef uint32_t u32;
+
+	while (!kthread_should_stop())
+	{
+		msleep_interruptible(poll_interval);
+
 		struct bio_vec bv = bvec;
 		unsigned int unwritten = bvec.bv_len;
 
@@ -1228,75 +1209,40 @@ int kth_bio_segment_rw(struct zram *zram, struct bio *bio, int offset, u32 index
 							unwritten);
 			if (zram_bvec_rw(zram, &bv, index, offset,
 					op_is_write(bio_op(bio)), bio) < 0)
-				goto out;
+				return -1;
 
 			bv.bv_offset += bv.bv_len;
 			unwritten -= bv.bv_len;
 
 			update_position(&index, &offset, &bv);
 		} while (unwritten);
-	} 
-	
-	bio_endio(bio);
+	}
+
 	return 0;
-	
-out:
-	bio_io_error(bio);
-	return -1;
-}
-
-/* 
- * kth_sched
- */
-int kth_sched(void *arg) 
-{
-	int ret;
-	int cnt = 0;
-  const int poll_interval = 1000;
-  struct queue_info *qi = (struct queue_info*)arg;
-
-	while (!kthread_should_stop())
-  {
-		msleep_interruptible(poll_interval);
-
-    if (kth_read_cpu_info(qi->data)) {
-      ret = -1;
-    }
-    pr_err("xinwei@debug - gathering : %d\n", cnt++);
-
-		// TODO
-		// bio_for_each_segment(bvec, qi->bio, iter) {
-		//  	kth_bio_segment_rw(qi->zram, qi->bio, qi->offset, qi->index);
-		// }
-  }
-        
-  return 0;
 }
 
 /* 
  * kthread_init 
  */
-static int kthread_init(struct zram *zram, struct bio *bio, int offset, u32 index)
+static int kthread_init(struct zram *zram, struct bio *bio, struct bio_vec bvec, int offset, u32 index)
 {
   int ret;
 
-  qinfo = kzalloc(sizeof(struct queue_info), GFP_KERNEL);
+  struct queue_info *qinfo = kzalloc(sizeof(struct queue_info), GFP_KERNEL);
   if(qinfo == NULL) {
     return -ENOMEM;
-  }
-  if (sched_name == NULL) {
-    sched_name = "kth_bio_segment_rw";
   }
 
 	qinfo->zram = zram;
 	qinfo->bio = bio;
+	qinfo->bvec = bvec;
 	qinfo->offset = offset;
 	qinfo->index = index;
 
 	// @threadfn: the function to run until signal_pending(current).
   // @data: data ptr for @threadfn.
   // @namefmt: printf-style name for the thread.
-  qinfo->task_id = kthread_run(kth_sched, qinfo, "%s-#%d", sched_name, 0);
+  qinfo->task_id = kthread_run(kth_bio_segment_rw, qinfo, "%s-#%d", "kth_bio_segment_rw", 0);
 
   if (IS_ERR(qinfo->task_id)) {
     ret = PTR_ERR(qinfo->task_id);
@@ -1321,10 +1267,11 @@ static void kthread_exit(void)
 
 static void __zram_make_request(struct zram *zram, struct bio *bio)
 {
+	int ret;
 	int offset;
 	u32 index;
-	// struct bio_vec bvec;
-	// struct bvec_iter iter;
+	struct bio_vec bvec;
+	struct bvec_iter iter;
 
 	index = bio->bi_iter.bi_sector >> SECTORS_PER_PAGE_SHIFT;
 	offset = (bio->bi_iter.bi_sector &
@@ -1341,10 +1288,26 @@ static void __zram_make_request(struct zram *zram, struct bio *bio)
 	}
 
 	// TODO
-	kthread_init(zram, bio, offset, index);
+	bio_for_each_segment(bvec, bio, iter) {
+		ret = kthread_init(zram, bio, bvec, offset, index);
+	}
 
+bio_endio(bio);
 	return;
+
+out:
+	bio_io_error(bio);
 }
+
+/*
+#define __bio_for_each_segment(bvl, bio, iter, start)
+	for (iter = (start); 
+			(iter).bi_size && ((bvl = bio_iter_iovec((bio), (iter))), 1);
+			bio_advance_iter((bio), &(iter), (bvl).bv_len))
+
+#define bio_for_each_segment(bvl, bio, iter)
+	__bio_for_each_segment(bvl, bio, iter, (bio)->bi_iter)
+*/
 
 /*
 	bio_for_each_segment(bvec, bio, iter) {

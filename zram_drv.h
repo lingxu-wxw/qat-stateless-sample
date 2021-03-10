@@ -55,8 +55,9 @@ enum zram_pageflags {
 
 struct queue_info {
 	struct task_struct	*task_id;
+	struct bio_vec 			*bvec;
 	struct zram 				*zram; 
-	struct bio 					*bio;
+	struct bio 					bio;
 	int    offset;
 	u32    index;
 	void	 *data;
