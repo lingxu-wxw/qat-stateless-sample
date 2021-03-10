@@ -57,6 +57,8 @@ struct queue_info {
 	struct task_struct	*task_id;
 	struct zram 				*zram; 
 	struct bio 					*bio;
+	int    offset;
+	u32    index;
 	void	 *data;
 };
 

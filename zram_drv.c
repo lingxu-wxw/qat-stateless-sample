@@ -1187,6 +1187,9 @@ struct queue_info *qinfo;
 static char *sched_name = NULL;
 module_param(sched_name, charp, 0);
 
+/* 
+ * kth_read_cpu_info
+ */
 int kth_read_cpu_info(void *data)
 {
 	// do something with data
@@ -1197,7 +1200,10 @@ int kth_read_cpu_info(void *data)
 	}
 }
 
-int kth_bio_segment_rw(struct zram *zram, struct bio *bio)
+/* 
+ * kth_bio_segment_rw
+ */
+int kth_bio_segment_rw(struct zram *zram, struct bio *bio, int offset, u32 index)
 {
 	int ret;
 	struct bio_vec bvec;
@@ -1233,8 +1239,14 @@ int kth_bio_segment_rw(struct zram *zram, struct bio *bio)
 	
 	bio_endio(bio);
 	return 0;
+	
+out:
+	bio_io_error(bio);
 }
 
+/* 
+ * kth_sched
+ */
 int kth_sched(void *arg) 
 {
 	int ret;
@@ -1252,6 +1264,9 @@ int kth_sched(void *arg)
     pr_err("xinwei@debug - gathering : %d\n", cnt++);
 
 		// TODO
+		// bio_for_each_segment(bvec, qi->bio, iter) {
+		//  	kth_bio_segment_rw(qi->zram, qi->bio, qi->offset, qi->index);
+		// }
   }
         
   return 0;
@@ -1260,7 +1275,7 @@ int kth_sched(void *arg)
 /* 
  * kthread_init 
  */
-static int kthread_init(struct zram *zram, struct bio *bio)
+static int kthread_init(struct zram *zram, struct bio *bio, int offset, u32 index)
 {
   int ret;
 
@@ -1274,6 +1289,8 @@ static int kthread_init(struct zram *zram, struct bio *bio)
 
 	qinfo->zram = zram;
 	qinfo->bio = bio;
+	qinfo->offset = offset;
+	qinfo->index = index;
 
 	// @threadfn: the function to run until signal_pending(current).
   // @data: data ptr for @threadfn.
@@ -1323,14 +1340,36 @@ static void __zram_make_request(struct zram *zram, struct bio *bio)
 	}
 
 	// TODO
-	kthread_init(zram, bio);
+	kthread_init(zram, bio, offset, index);
 
+	return;
+}
+
+/*
+	bio_for_each_segment(bvec, bio, iter) {
+		struct bio_vec bv = bvec;
+		unsigned int unwritten = bvec.bv_len;
+
+		do {
+			bv.bv_len = min_t(unsigned int, PAGE_SIZE - offset,
+							unwritten);
+			if (zram_bvec_rw(zram, &bv, index, offset,
+					op_is_write(bio_op(bio)), bio) < 0)
+				goto out;
+
+			bv.bv_offset += bv.bv_len;
+			unwritten -= bv.bv_len;
+
+			update_position(&index, &offset, &bv);
+		} while (unwritten);
+	} 
+	
+	bio_endio(bio);
 	return;
 
 out:
 	bio_io_error(bio);
-}
-
+*/
 
 /*
  * Handler function for all zram I/O requests.
