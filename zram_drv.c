@@ -1193,7 +1193,67 @@ int read_cpu_info(void *data)
 		return -1;
 	else
 		return 0;
-} 
+}
+
+int kth_schedd(void *arg) 
+{
+	int ret;
+        int cnt = 0;
+        const int poll_interval = 1000;
+        struct queue_info *qi = (struct queue_info*)arg;
+
+        while(!kthread_should_stop())
+        {
+                msleep_interruptible(poll_interval);
+
+                if(read_cpu_info(qi->data)) {
+                        ret = -1;
+                        // do something
+                }
+ 
+                pr_err("xinwei@debug - gathering : %d\n", cnt++);
+        }
+        
+        return 0;
+}
+
+/* 
+ * kthread_init 
+ */
+static int kthread_init(void)
+{
+        int ret;
+
+        qinfo = kzalloc(sizeof(struct queue_info), GFP_KERNEL);
+        if(qinfo == NULL) {
+                return -ENOMEM;
+        }
+        if(sched_name == NULL) {
+                sched_name = "kth_zram_bio";
+        }
+
+        qinfo->task_id = kthread_run(kth_schedd, qinfo, "%s-#%d", sched_name, 0);
+
+        if(IS_ERR(qinfo->task_id)) {
+                ret = PTR_ERR(qinfo->task_id);
+                goto kthread_init_err;
+        }
+
+        return 0;
+
+kthread_init_err:
+        kfree(qinfo);
+        return ret;
+}
+
+/*
+ * kthread_exit
+ */
+static void kthread_exit(void)
+{
+        kthread_stop(qinfo->task_id);
+        kfree(qinfo);
+}
 
 static void __zram_make_request(struct zram *zram, struct bio *bio)
 {
@@ -1217,23 +1277,8 @@ static void __zram_make_request(struct zram *zram, struct bio *bio)
 	}
 
 	// TODO
-	int ret;
-	int cnt;
-	char* arg = "hello";
-	const int poll_interval = 1000;
-	struct queue_info *qi = (struct queue_info*)arg;
-
-	while(!kthread_should_stop())
-	{
-		msleep_interruptible(poll_interval);
-
-		if(read_cpu_info(qi->data)) {
-			ret = -1;
-			//do something
-		}
-
-		printk("xinwei@debug - gathering : %d\n", count++);
-	}
+	pr_err("xinwei@hello");
+	kthread_init();
 
 	bio_for_each_segment(bvec, bio, iter) {
 		struct bio_vec bv = bvec;
@@ -1260,37 +1305,6 @@ out:
 	bio_io_error(bio);
 }
 
-static int kthread_init(void)
-{
-	int ret;
-
-	qinfo = kzalloc(sizeof(struct queue_info), GFP_KERNEL);
-	if(qinfo == NULL) {
-		return -ENOMEM;
-	}
-	if(sched_name == NULL) {
-		sched_name = "kth_zram_bio";
-	}
-
-	qinfo->task_id = kthread_run(kth_schedd, qinfo, "%s-#%d", sched_name, 0);
-
-	if(IS_ERR(qinfo->task_id)) {
-		ret = PTR_ERR(qinfo->task_id);		
-		goto kthread_init_err;
-	}
-
-	return 0;
-
-kthread_init_err:
-	kfree(qinfo);
-	return ret;
-}
-
-static void kthread_exit(void)
-{
-	kthread_stop(qinfo->task_id);
-	kfree(qinfo);
-}
 
 /*
  * Handler function for all zram I/O requests.
@@ -1819,6 +1833,7 @@ static int __init zram_init(void)
 			goto out_error;
 		num_devices--;
 	}
+	//kthread_init();
 	qat_dc_init();
 
 	return 0;
@@ -1830,13 +1845,10 @@ out_error:
 
 static void __exit zram_exit(void)
 {
+	kthread_exit();
 	qat_dc_fini();
 	destroy_devices();
 }
-
-// TODO
-module_init(kthread_init);
-module_exit(kthread_exit);
 
 module_init(zram_init);
 module_exit(zram_exit);
