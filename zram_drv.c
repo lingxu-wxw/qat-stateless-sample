@@ -1182,38 +1182,76 @@ static int zram_bvec_rw(struct zram *zram, struct bio_vec *bvec, u32 index,
 	return ret;
 }
 
+
 struct queue_info *qinfo;
 static char *sched_name = NULL;
 module_param(sched_name, charp, 0);
 
-int read_cpu_info(void *data)
+int kth_read_cpu_info(void *data)
 {
-	//do something with data
-	int ret;
-
-	ret = (data == NULL);
-
-	kthread_stop();
-	return ret;
+	// do something with data
+	if (unlikely(data == NULL)) {
+		return -1;
+	}	else {
+		return 0;
+	}
 }
 
-int kth_schedd(void *arg) 
+int kth_bio_segment_rw(struct zram *zram, struct bio *bio)
+{
+	int ret;
+	struct bio_vec bvec;
+	struct bvec_iter iter;
+	
+	/*
+	#define __bio_for_each_segment(bvl, bio, iter, start)
+		for (iter = (start); 
+				(iter).bi_size && ((bvl = bio_iter_iovec((bio), (iter))), 1);
+				bio_advance_iter((bio), &(iter), (bvl).bv_len))
+
+	#define bio_for_each_segment(bvl, bio, iter)
+		__bio_for_each_segment(bvl, bio, iter, (bio)->bi_iter)
+	*/
+
+	bio_for_each_segment(bvec, bio, iter) {
+		struct bio_vec bv = bvec;
+		unsigned int unwritten = bvec.bv_len;
+
+		do {
+			bv.bv_len = min_t(unsigned int, PAGE_SIZE - offset,
+							unwritten);
+			if (zram_bvec_rw(zram, &bv, index, offset,
+					op_is_write(bio_op(bio)), bio) < 0)
+				goto out;
+
+			bv.bv_offset += bv.bv_len;
+			unwritten -= bv.bv_len;
+
+			update_position(&index, &offset, &bv);
+		} while (unwritten);
+	} 
+	
+	bio_endio(bio);
+	return 0;
+}
+
+int kth_sched(void *arg) 
 {
 	int ret;
 	int cnt = 0;
   const int poll_interval = 1000;
   struct queue_info *qi = (struct queue_info*)arg;
 
-	while(!kthread_should_stop())
+	while (!kthread_should_stop())
   {
 		msleep_interruptible(poll_interval);
 
-    if(read_cpu_info(qi->data)) {
+    if (kth_read_cpu_info(qi->data)) {
       ret = -1;
-      // do something
     }
- 
     pr_err("xinwei@debug - gathering : %d\n", cnt++);
+
+		// TODO
   }
         
   return 0;
@@ -1222,7 +1260,7 @@ int kth_schedd(void *arg)
 /* 
  * kthread_init 
  */
-static int kthread_init(void)
+static int kthread_init(struct zram *zram, struct bio *bio)
 {
   int ret;
 
@@ -1230,13 +1268,19 @@ static int kthread_init(void)
   if(qinfo == NULL) {
     return -ENOMEM;
   }
-  if(sched_name == NULL) {
-    sched_name = "kth_zram_bio";
+  if (sched_name == NULL) {
+    sched_name = "kth_bio_segment_rw";
   }
 
-  qinfo->task_id = kthread_run(kth_schedd, qinfo, "%s-#%d", sched_name, 0);
+	qinfo->zram = zram;
+	qinfo->bio = bio;
 
-  if(IS_ERR(qinfo->task_id)) {
+	// @threadfn: the function to run until signal_pending(current).
+  // @data: data ptr for @threadfn.
+  // @namefmt: printf-style name for the thread.
+  qinfo->task_id = kthread_run(kth_sched, qinfo, "%s-#%d", sched_name, 0);
+
+  if (IS_ERR(qinfo->task_id)) {
     ret = PTR_ERR(qinfo->task_id);
     goto kthread_init_err;
   }
@@ -1261,8 +1305,8 @@ static void __zram_make_request(struct zram *zram, struct bio *bio)
 {
 	int offset;
 	u32 index;
-	struct bio_vec bvec;
-	struct bvec_iter iter;
+	// struct bio_vec bvec;
+	// struct bvec_iter iter;
 
 	index = bio->bi_iter.bi_sector >> SECTORS_PER_PAGE_SHIFT;
 	offset = (bio->bi_iter.bi_sector &
@@ -1279,28 +1323,8 @@ static void __zram_make_request(struct zram *zram, struct bio *bio)
 	}
 
 	// TODO
-	pr_err("xinwei@hello");
-	kthread_init();
+	kthread_init(zram, bio);
 
-	bio_for_each_segment(bvec, bio, iter) {
-		struct bio_vec bv = bvec;
-		unsigned int unwritten = bvec.bv_len;
-
-		do {
-			bv.bv_len = min_t(unsigned int, PAGE_SIZE - offset,
-							unwritten);
-			if (zram_bvec_rw(zram, &bv, index, offset,
-					op_is_write(bio_op(bio)), bio) < 0)
-				goto out;
-
-			bv.bv_offset += bv.bv_len;
-			unwritten -= bv.bv_len;
-
-			update_position(&index, &offset, &bv);
-		} while (unwritten);
-	} 
-
-	bio_endio(bio);
 	return;
 
 out:
