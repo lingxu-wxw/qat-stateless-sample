@@ -1218,7 +1218,7 @@ int kth_bio_segment_rw(void *args)
 	} while (unwritten);
 
 	complete(&complete_bio);
-	do_exit();
+	do_exit(0);
 
 	return 0;
 }
