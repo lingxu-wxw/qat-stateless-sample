@@ -43,6 +43,8 @@
  */
 #define ZRAM_FLAG_SHIFT 24
 
+#define	ZRAM_TIMEOUT_MS	500
+
 /* Flags for zram pages (table[page_no].value) */
 enum zram_pageflags {
 	/* Page consists the same element */
@@ -55,12 +57,11 @@ enum zram_pageflags {
 
 struct queue_info {
 	struct task_struct	*task_id;
-	struct bio_vec 			*bvec;
 	struct zram 				*zram; 
-	struct bio 					bio;
+	struct bio 					*bio;
+	struct bio_vec 			bvec;
 	int    offset;
 	u32    index;
-	void	 *data;
 };
 
 /*-- Data structures */

@@ -35,6 +35,7 @@
 
 #include <linux/kthread.h>
 #include <linux/delay.h>
+#include <linux/completion.h>
 
 #include "zram_drv.h"
 
@@ -1183,40 +1184,41 @@ static int zram_bvec_rw(struct zram *zram, struct bio_vec *bvec, u32 index,
 }
 
 
+struct queue_info *qinfo;
+struct completion complete_bio;
+
 /* 
  * kth_bio_segment_rw
  */
 int kth_bio_segment_rw(void *args)
 {
-	const int poll_interval = 1000;
+	struct queue_info *qi = (struct queue_info*)args;
 
-	struct queue_info *qinfo = (struct queue_info*)args;
+	struct bio_vec bvec = qi->bvec;
+	struct zram *zram = qi->zram;
+	struct bio *bio = qi->bio;
+	int offset = qi->offset;
+	u32 index = qi->index;					// typedef uint32_t u32;
 
-	struct bio_vec bvec = qinfo->bvec;
-	struct zram *zram = qinfo->zram;
-	int offset = qinfo->offset;
-	u32 index = qinfo->index;					// typedef uint32_t u32;
+	// bio
+	struct bio_vec bv = bvec;
+	unsigned int unwritten = bvec.bv_len;
 
-	while (!kthread_should_stop())
-	{
-		msleep_interruptible(poll_interval);
+	do {
+		bv.bv_len = min_t(unsigned int, PAGE_SIZE - offset,
+						unwritten);
+		if (zram_bvec_rw(zram, &bv, index, offset,
+				op_is_write(bio_op(bio)), bio) < 0)
+			return -1;
 
-		struct bio_vec bv = bvec;
-		unsigned int unwritten = bvec.bv_len;
+		bv.bv_offset += bv.bv_len;
+		unwritten -= bv.bv_len;
 
-		do {
-			bv.bv_len = min_t(unsigned int, PAGE_SIZE - offset,
-							unwritten);
-			if (zram_bvec_rw(zram, &bv, index, offset,
-					op_is_write(bio_op(bio)), bio) < 0)
-				return -1;
+		update_position(&index, &offset, &bv);
+	} while (unwritten);
 
-			bv.bv_offset += bv.bv_len;
-			unwritten -= bv.bv_len;
-
-			update_position(&index, &offset, &bv);
-		} while (unwritten);
-	}
+	complete(&complete_bio);
+	do_exit();
 
 	return 0;
 }
@@ -1228,7 +1230,7 @@ static int kthread_init(struct zram *zram, struct bio *bio, struct bio_vec bvec,
 {
   int ret;
 
-  struct queue_info *qinfo = kzalloc(sizeof(struct queue_info), GFP_KERNEL);
+  qinfo = kzalloc(sizeof(struct queue_info), GFP_KERNEL);
   if(qinfo == NULL) {
     return -ENOMEM;
   }
@@ -1289,14 +1291,21 @@ static void __zram_make_request(struct zram *zram, struct bio *bio)
 
 	// TODO
 	bio_for_each_segment(bvec, bio, iter) {
+		
+		init_completion(&complete_bio);
+
 		ret = kthread_init(zram, bio, bvec, offset, index);
+
+		if (!wait_for_completion_interruptible_timeout(&complete_bio, ZRAM_TIMEOUT_MS)) {
+			goto out;
+		}
 	}
 
-bio_endio(bio);
+	bio_endio(bio);
 	return;
 
 out:
-	bio_io_error(bio);
+ 	bio_io_error(bio);
 }
 
 /*
@@ -1874,7 +1883,7 @@ out_error:
 
 static void __exit zram_exit(void)
 {
-	kthread_exit();
+	// kthread_exit();
 	qat_dc_fini();
 	destroy_devices();
 }
