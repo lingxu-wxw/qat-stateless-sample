@@ -36,6 +36,9 @@
 #include <linux/kthread.h>
 #include <linux/delay.h>
 #include <linux/completion.h>
+#include <linux/sched.h>
+#include <linux/spinlock.h>
+#include <linux/spinlock_types.h>
 
 #include "zram_drv.h"
 
@@ -1184,12 +1187,13 @@ static int zram_bvec_rw(struct zram *zram, struct bio_vec *bvec, u32 index,
 }
 
 
-struct queue_info *qinfo;
-struct completion complete_bio;
+// struct queue_info *qinfo;
+// struct completion complete_bio;
 
 /* 
  * kth_bio_segment_rw
  */
+/*
 int kth_bio_segment_rw(void *args)
 {
 	struct queue_info *qi = (struct queue_info*)args;
@@ -1217,20 +1221,22 @@ int kth_bio_segment_rw(void *args)
 		update_position(&index, &offset, &bv);
 	} while (unwritten);
 
-	complete(&complete_bio);
+	// complete(&complete_bio);
 	do_exit(0);
 
 	return 0;
 }
+*/
 
 /* 
  * kthread_init 
  */
+/*
 static int kthread_init(struct zram *zram, struct bio *bio, struct bio_vec bvec, int offset, u32 index)
 {
   int ret;
 
-  qinfo = kzalloc(sizeof(struct queue_info), GFP_KERNEL);
+  struct queue_info *qinfo = kzalloc(sizeof(struct queue_info), GFP_KERNEL);
   if(qinfo == NULL) {
     return -ENOMEM;
   }
@@ -1257,48 +1263,218 @@ kthread_init_err:
   kfree(qinfo);
   return ret;
 }
+*/
 
-/*
- * kthread_exit
+
+static DECLARE_COMPLETION(queue_ready);
+tpool_t* pool;
+rwlock_t queue_lock;
+unsigned long flags;
+
+/* 
+ * work
  */
-static void kthread_exit(void)
+int work(kthread_args_t* args)
 {
-  kthread_stop(qinfo->task_id);
-  kfree(qinfo);
+	pr_err("xinwei@work: I'm work %d!\n", args->data);
+
+	struct bio_vec bvec = args->bvec;
+	struct zram *zram = args->zram;
+	struct bio *bio = args->bio;
+	int offset = args->offset;
+	u32 index = args->index;
+
+	// bio
+	struct bio_vec bv = bvec;
+	unsigned int unwritten = bvec.bv_len;
+
+	do {
+		bv.bv_len = min_t(unsigned int, PAGE_SIZE - offset,
+						unwritten);
+		if (zram_bvec_rw(zram, &bv, index, offset,
+				op_is_write(bio_op(bio)), bio) < 0)
+			return -1;
+
+		bv.bv_offset += bv.bv_len;
+		unwritten -= bv.bv_len;
+
+		update_position(&index, &offset, &bv);
+	} while (unwritten);
+
+	pr_err("xinwei@work %d finish!\n", args->data);
+
+  return 0;
+}
+
+/* 
+ * work_routine 
+ */
+int work_routine(void* args)
+{
+  tpool_work_t* task = NULL;
+
+	while (1) {
+    write_lock_irqsave(&queue_lock,flags);
+		pr_err("xinwei@work_routine get lock!\n");
+		pr_err("xinwei@work_routine thread begin: %s[PID = %d]\n", current->comm, current->pid);
+     
+		if (!pool->tpool_head) {
+      write_unlock_irqrestore(&queue_lock,flags);
+      reinit_completion(&queue_ready);
+      wait_for_completion(&queue_ready);
+      write_lock_irqsave(&queue_lock,flags);
+			pr_err("xinwei@work_routine get lock again!\n");
+    }
+
+    /*tweak a work*/
+    task = pool->tpool_head;
+    pool->tpool_head=pool->tpool_head->next;
+    write_unlock_irqrestore(&queue_lock, flags);
+		pr_err("xinwei@thread %s[PID = %d] get task!\n", current->comm, current->pid);
+
+		/*call work()*/
+    task->work(task->args);
+
+    kfree(task);
+  }
+        
+	return 0;
+}
+
+/**
+ * create_tpool
+ */ 
+int create_tpool(tpool_t** pool, size_t max_thread_num)
+{
+  int i;
+   
+  (*pool) = (tpool_t*)kmalloc(sizeof(tpool_t),GFP_KERNEL); 
+  if (NULL == *pool) {
+		pr_err("xinwei@Malloc tpool_t failed!\n");
+    return -1;
+  }
+
+  (*pool)->maxnum_thread = max_thread_num;
+  (*pool)->tpool_head = NULL;
+
+  for (i=0; i < max_thread_num; i++) {
+    kthread_run(work_routine, NULL, "kthreadrun%d", i);    
+  } 
+
+	pr_err("xinwei@create tpool finish!\n");
+
+	return 0;
+}
+
+/**
+ * add_task_2_tpool
+ */
+int add_task_2_tpool(tpool_t* pool, int (*work)(kthread_args_t*), kthread_args_t* args)
+{
+  tpool_work_t* newtask, *member;
+ 
+  if (!work) {
+    return -1;
+  }
+ 
+  newtask = (tpool_work_t*)kmalloc(sizeof(tpool_work_t),GFP_KERNEL);
+  if (!newtask) {
+		pr_err("xinwei@Malloc work error!\n");
+    return -1;    
+  }
+   
+  newtask->work = work;
+  newtask->args = args;
+  newtask->next = NULL;
+    
+  write_lock_irqsave(&queue_lock,flags);
+  
+  if (!pool->tpool_head) {
+    pool->tpool_head = newtask;
+		pr_err("xinwei@add task %d to tpool call complete()!\n", args->data);
+    complete(&queue_ready);
+  }
+  else{
+		member = pool->tpool_head;
+    while (member->next) {
+      member = member->next;
+    }
+    
+		member->next = newtask;
+  }
+   
+  write_unlock_irqrestore(&queue_lock, flags);
+
+	pr_err("xinwei@add task %d to tpool finish!\n", args->data);
+
+  return 0;
 }
 
 static void __zram_make_request(struct zram *zram, struct bio *bio)
 {
-	int ret;
+	// int ret;
 	int offset;
-	u32 index;
+	u32 index, curindex;
 	struct bio_vec bvec;
 	struct bvec_iter iter;
+	int workcnt;
 
 	index = bio->bi_iter.bi_sector >> SECTORS_PER_PAGE_SHIFT;
 	offset = (bio->bi_iter.bi_sector &
 		  (SECTORS_PER_PAGE - 1)) << SECTOR_SHIFT;
+	
+	curindex = index;
+	workcnt = 0;
 
 	switch (bio_op(bio)) {
-	case REQ_OP_DISCARD:
-	case REQ_OP_WRITE_ZEROES:
-		zram_bio_discard(zram, index, offset, bio);
-		bio_endio(bio);
-		return;
-	default:
-		break;
+		case REQ_OP_DISCARD:
+		case REQ_OP_WRITE_ZEROES:
+			zram_bio_discard(zram, index, offset, bio);
+			bio_endio(bio);
+			return;
+		default:
+			break;
 	}
+
+	// create pool
+	rwlock_init(&queue_lock);
+  init_completion(&queue_ready);
+
+	if (0 != create_tpool(&pool,5)) {
+    goto out;
+  }
 
 	// TODO
 	bio_for_each_segment(bvec, bio, iter) {
+
+		// add task to pool
+		kthread_args_t *args;
+    args = (kthread_args_t*)kmalloc(sizeof(kthread_args_t),GFP_KERNEL);
+    
+		args->zram = zram;
+		args->bio = bio;
+		args->bvec = bvec;
+		args->offset = offset;
+		args->index = curindex;
+		args->data = workcnt;
+		curindex++;
+		workcnt++;
+
+    if (add_task_2_tpool(pool, work, args) == -1) {
+      goto out;
+    }
 		
+		/*
 		init_completion(&complete_bio);
-
 		ret = kthread_init(zram, bio, bvec, offset, index);
-
 		if (!wait_for_completion_interruptible_timeout(&complete_bio, ZRAM_TIMEOUT_MS)) {
 			goto out;
 		}
+		*/
+	}
+
+	// wait
+	while (pool->tpool_head) {
 	}
 
 	bio_endio(bio);
@@ -1316,6 +1492,14 @@ out:
 
 #define bio_for_each_segment(bvl, bio, iter)
 	__bio_for_each_segment(bvl, bio, iter, (bio)->bi_iter)
+*/
+
+/*
+static void update_position(u32 *index, int *offset, struct bio_vec *bvec)
+{
+*index  += (*ofZZZZfset + bvec->bv_len) / PAGE_SIZE;
+	*offset = (*offset + bvec->bv_len) % PAGE_SIZE;
+}
 */
 
 /*
@@ -1842,6 +2026,8 @@ static void destroy_devices(void)
 static int __init zram_init(void)
 {
 	int ret;
+
+	pr_err("xinwei@This is my zram.\n");
 
 	ret = cpuhp_setup_state_multi(CPUHP_ZCOMP_PREPARE, "block/zram:prepare",
 				      zcomp_cpu_up_prepare, zcomp_cpu_dead);
