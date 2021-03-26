@@ -1278,30 +1278,14 @@ int work(kthread_args_t* args)
 {
 	pr_err("xinwei@work: I'm work %d!\n", args->data);
 
-	struct bio_vec bvec = args->bvec;
+	struct bio_vec *bv = args->bv;
 	struct zram *zram = args->zram;
 	struct bio *bio = args->bio;
 	int offset = args->offset;
 	u32 index = args->index;
 
 	// bio
-	struct bio_vec bv = bvec;
-	unsigned int unwritten = bvec.bv_len;
-
-	do {
-		bv.bv_len = min_t(unsigned int, PAGE_SIZE - offset,
-						unwritten);
-		if (zram_bvec_rw(zram, &bv, index, offset,
-				op_is_write(bio_op(bio)), bio) < 0)
-			return -1;
-
-		bv.bv_offset += bv.bv_len;
-		unwritten -= bv.bv_len;
-
-		update_position(&index, &offset, &bv);
-	} while (unwritten);
-
-	pr_err("xinwei@work %d finish!\n", args->data);
+	zram_bvec_rw(zram, bv, index, offset, op_is_write(bio_op(bio)), bio);
 
   return 0;
 }
@@ -1413,18 +1397,16 @@ int add_task_2_tpool(tpool_t* pool, int (*work)(kthread_args_t*), kthread_args_t
 static void __zram_make_request(struct zram *zram, struct bio *bio)
 {
 	// int ret;
-	int offset;
+	int offset, curoffset;
 	u32 index, curindex;
 	struct bio_vec bvec;
 	struct bvec_iter iter;
-	int workcnt;
 
 	index = bio->bi_iter.bi_sector >> SECTORS_PER_PAGE_SHIFT;
 	offset = (bio->bi_iter.bi_sector &
 		  (SECTORS_PER_PAGE - 1)) << SECTOR_SHIFT;
 	
 	curindex = index;
-	workcnt = 0;
 
 	switch (bio_op(bio)) {
 		case REQ_OP_DISCARD:
@@ -1440,14 +1422,46 @@ static void __zram_make_request(struct zram *zram, struct bio *bio)
 	rwlock_init(&queue_lock);
   init_completion(&queue_ready);
 
-	if (0 != create_tpool(&pool,5)) {
+	if (0 != create_tpool(&pool, 3)) {
     goto out;
   }
 
 	// TODO
 	bio_for_each_segment(bvec, bio, iter) {
 
+		struct bio_vec bv = bvec;
+		unsigned int unwritten = bvec.bv_len;
+
+		do {
+			curindex = index;
+			curoffset = offset;
+
+			bv.bv_len = min_t(unsigned int, PAGE_SIZE - offset,
+							unwritten);
+
+			bv.bv_offset += bv.bv_len;
+			unwritten -= bv.bv_len;
+
+			update_position(&index, &offset, &bv);
+
+			// add task to pool
+			kthread_args_t *args;
+    	args = (kthread_args_t*)kmalloc(sizeof(kthread_args_t),GFP_KERNEL);
+
+			args->zram = zram;
+			args->bio = bio;
+			args->bv = &bv;
+			args->offset = curoffset;
+			args->index = curindex;
+
+			if (add_task_2_tpool(pool, work, args) == -1) {
+      	goto out;
+    	}
+
+		} while (unwritten);
+
 		// add task to pool
+		/*
 		kthread_args_t *args;
     args = (kthread_args_t*)kmalloc(sizeof(kthread_args_t),GFP_KERNEL);
     
@@ -1463,6 +1477,7 @@ static void __zram_make_request(struct zram *zram, struct bio *bio)
     if (add_task_2_tpool(pool, work, args) == -1) {
       goto out;
     }
+		*/
 		
 		/*
 		init_completion(&complete_bio);
@@ -1474,8 +1489,8 @@ static void __zram_make_request(struct zram *zram, struct bio *bio)
 	}
 
 	// wait
-	while (pool->tpool_head) {
-	}
+	// while (pool->tpool_head) {
+	// }
 
 	bio_endio(bio);
 	return;

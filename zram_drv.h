@@ -133,6 +133,7 @@ typedef struct kthread_args {
   struct zram 				*zram; 
 	struct bio 					*bio;
 	struct bio_vec 			bvec;
+	struct bio_vec 			*bv;
 	int    offset;
 	u32    index;
 	int 	 data;
