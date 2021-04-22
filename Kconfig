@@ -1,0 +1,31 @@
+config ZRAM
+	tristate "Compressed RAM block device support"
+	depends on BLOCK && SYSFS && ZSMALLOC && CRYPTO
+	select CRYPTO_LZO
+	default y
+	help
+	  Creates virtual block devices called /dev/zramX (X = 0, 1, ...).
+	  Pages written to these disks are compressed and stored in memory
+	  itself. These disks allow very fast I/O and compression provides
+	  good amounts of memory savings.
+
+	  It has several use cases, for example: /tmp storage, use as swap
+	  disks and maybe many more.
+
+	  See zram.txt for more information.
+
+
+ config ZRAM_ASYNC_IO
+	bool "support asynchronous IO"
+	depends on ZRAM && SMP
+	default y
+	help
+	By default zram uses stream-based compression so it can use
+	every CPU only if every CPU has streams. However, it gives
+	poor performance on single-stream workload.
+
+	This implementation uses a background thread per core and
+	compress a stream by multiple core.
+
+	You can disable the feature "echo 0 > /sys/block/zramx/use_aio"
+	before setting disksize.
